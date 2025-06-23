@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kâr Hesaplayıcı - Adaley</title>
+  <style>
+    :root {
+      --bg-light: #f0f0f0;
+      --bg-dark: #121212;
+      --text-light: #333;
+      --text-dark: #eee;
+      --btn-bg-light: #4caf50;
+      --btn-bg-dark: #388e3c;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: var(--bg-light);
+      color: var(--text-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 100vh;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark {
+      background-color: var(--bg-dark);
+      color: var(--text-dark);
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      max-width: 420px;
+      width: 100%;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark .container {
+      background: #222;
+      color: var(--text-dark);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+    }
+    input {
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      font-size: 18px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark input {
+      background-color: #333;
+      color: var(--text-dark);
+      border: 1px solid #555;
+    }
+    button {
+      background-color: var(--btn-bg-light);
+      color: white;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 18px;
+      width: 100%;
+      margin: 10px 0;
+      transition: background-color 0.3s;
+    }
+    body.dark button {
+      background-color: var(--btn-bg-dark);
+    }
+    #result {
+      margin-top: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--text-light);
+      transition: color 0.3s;
+    }
+    body.dark #result {
+      color: var(--text-dark);
+    }
+    .brand {
+      font-size: 16px;
+      color: #888;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    body.dark .brand {
+      color: #aaa;
+    }
+    .history {
+      margin-top: 25px;
+      max-height: 180px;
+      overflow-y: auto;
+      background: #eee;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 14px;
+      color: #555;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark .history {
+      background: #333;
+      color: #ccc;
+    }
+    .history-item {
+      padding: 6px 8px;
+      border-bottom: 1px solid #ccc;
+    }
+    body.dark .history-item {
+      border-color: #555;
+    }
+    .history-empty {
+      text-align: center;
+      font-style: italic;
+      color: #999;
+    }
+    .top-bar {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .top-bar button {
+      width: auto;
+      padding: 8px 16px;
+      font-size: 14px;
+      border-radius: 10px;
+      margin: 0;
+    }
+    @media (max-width: 480px) {
+      input, button {
+        font-size: 16px;
+        padding: 12px;
+      }
+      #result {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand">by Adaley</div>
+    <h2>Kâr Hesaplayıcı</h2>
+    <input type="number" id="buyPrice" placeholder="Alış Fiyatı (kredi)" min="0" step="any" />
+    <input type="number" id="sellPrice" placeholder="Satış Fiyatı (kredi)" min="0" step="any" />
+    <div class="top-bar">
+      <button id="clearBtn">Temizle</button>
+      <button id="darkModeBtn">Karanlık Mod</button>
+    </div>
+    <div id="result"></div>
+
+    <div class="history" id="history">
+      <div class="history-empty">Geçmiş kayıt bulunamadı.</div>
+    </div>
+  </div>
+
+  <script>
+    const buyInput = document.getElementById('buyPrice');
+    const sellInput = document.getElementById('sellPrice');
+    const resultDiv = document.getElementById('result');
+    const historyDiv = document.getElementById('history');
+    const clearBtn = document.getElementById('clearBtn');
+    const darkModeBtn = document.getElementById('darkModeBtn');
+
+    // Komisyonlar
+    const buyMultiplier = 1.25;  // alış × 1.25
+    const sellMultiplier = 0.8;  // satış × 0.8
+
+    // Load dark mode state from localStorage
+    if(localStorage.getItem('darkMode') === 'enabled'){
+      document.body.classList.add('dark');
+      darkModeBtn.innerText = 'Açık Mod';
+    }
+
+    // Dark mode toggle
+    darkModeBtn.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      if(document.body.classList.contains('dark')){
+        localStorage.setItem('darkMode', 'enabled');
+        darkModeBtn.innerText = 'Açık Mod';
+      } else {
+        localStorage.setItem('darkMode', 'disabled');
+        darkModeBtn.innerText = 'Karanlık Mod';
+      }
+    });
+
+    // Geçmiş verileri localStorage'dan yükle
+    function loadHistory(){
+      const data = JSON.parse(localStorage.getItem('karHistory') || '[]');
+      historyDiv.innerHTML = '';
+      if(data.length === 0){
+        historyDiv.innerHTML = '<div class="history-empty">Geçmiş kayıt bulunamadı.</div>';
+        return;
+      }
+      data.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerText = `Alış: ${item.buy}  |  Satış: ${item.sell}  |  Kâr: ${item.profit.toFixed(2)}`;
+        historyDiv.appendChild(div);
+      });
+    }
+
+    // Yeni hesaplama ve geçmişe ekleme
+    function calculateProfit(){
+      const buy = parseFloat(buyInput.value);
+      const sell = parseFloat(sellInput.value);
+
+      if(isNaN(buy) || isNaN(sell)){
+        resultDiv.innerText = "Lütfen geçerli fiyatlar girin.";
+        return;
+      }
+
+      const totalCost = buy * buyMultiplier;
+      const totalReturn = sell * sellMultiplier;
+      const profit = totalReturn - totalCost;
+
+      resultDiv.innerText = `Kârınız: ${profit.toFixed(2)} kredi`;
+
+      // Geçmişe ekle
+      addToHistory({buy, sell, profit});
+    }
+
+    // Geçmişe ekle, limit 20 kayıt
+    function addToHistory(entry){
+      let data = JSON.parse(localStorage.getItem('karHistory') || '[]');
+      data.unshift(entry);
+      if(data.length > 20) data.pop();
+      localStorage.setItem('karHistory', JSON.stringify(data));
+      loadHistory();
+    }
+
+    // Temizle butonu
+    clearBtn.addEventListener('click', () => {
+      buyInput.value = '';
+      sellInput.value = '';
+      resultDiv.innerText = '';
+    });
+
+    // Input değiştikçe otomatik hesapla (gerçek zamanlı)
+    buyInput.addEventListener('input', calculateProfit);
+    sellInput.addEventListener('input', calculateProfit);
+
+    // Sayfa yüklendiğinde geçmişi yükle
+    window.onload = loadHistory;
+  </script>
+</body>
+</html>
